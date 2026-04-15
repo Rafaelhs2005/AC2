@@ -4,24 +4,25 @@ import java.util.Map;
 
 public class Main {
 
-    public static String procurarMnemônico(String string) {
+    public static String procurarMnemonico(String string) {
         Map<String, String> tabela = new HashMap<>();
-        tabela.put("zeroL", "0");
-        tabela.put("umL", "1");
-        tabela.put("copiaA", "2");
-        tabela.put("copiaB", "3");
-        tabela.put("nA", "4");
+
+        tabela.put("CopiaA", "0");
+        tabela.put("CopiaB", "1");
+        tabela.put("AxB", "2");
+        tabela.put("nAxnB", "3");
+        tabela.put("AeBn", "4");
         tabela.put("nB", "5");
-        tabela.put("AenB", "6");
-        tabela.put("nAeB", "7");
-        tabela.put("AxB", "8");
-        tabela.put("nAxnB", "9");
-        tabela.put("nAxnBn", "A");
+        tabela.put("nAonB", "6");
+        tabela.put("nA", "7");
+        tabela.put("AonB", "8");
+        tabela.put("UmL", "9");
+        tabela.put("ZeroL", "A");
         tabela.put("AeB", "B");
-        tabela.put("AeBn", "C");
-        tabela.put("AoBn", "D");
+        tabela.put("nAeB", "C");
+        tabela.put("AenB", "D");
         tabela.put("AoB", "E");
-        tabela.put("nAonBn", "F");
+        tabela.put("nAenB", "F");
 
         return tabela.getOrDefault(string, "Erro");
     }
@@ -29,7 +30,7 @@ public class Main {
     public static void main(String[] args) {
         try {
             // Abrindo os arquivos
-            BufferedReader arq = new BufferedReader(new FileReader("teste.ula"));
+            BufferedReader arq = new BufferedReader(new FileReader("testeula.ula"));
             BufferedWriter saida = new BufferedWriter(new FileWriter("testeula.hex"));
 
             String linha;
@@ -57,7 +58,7 @@ public class Main {
                             int x = Integer.parseInt(X);
                             int y = Integer.parseInt(Y);
                             // Escreve no arquivo de saída o formato desejado
-                            saida.write(String.format("%X%X%s%n", x, y, procurarMnemônico(W)));
+                            saida.write(String.format("%X%X%s%n", x, y, procurarMnemonico(W)));
                         } catch (NumberFormatException e) {
                             System.out.println("Erro ao converter X ou Y para inteiro: " + e.getMessage());
                         }
