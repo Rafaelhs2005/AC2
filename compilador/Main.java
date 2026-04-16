@@ -28,62 +28,131 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        // Ajuste os caminhos dos arquivos conforme sua pasta
-        File arquivoEntrada = new File("compilador/testeula.ula");
-        File arquivoSaida = new File("compilador/testeula.hex");
+        String nomeArquivoEntrada = (args.length > 0) ? args[0] : "testeula.ula";
+        File arquivoEntrada = new File(nomeArquivoEntrada);
+        File arquivoSaida = new File(nomeArquivoEntrada.replace(".ula", ".hex"));
 
         try {
             BufferedReader arq = new BufferedReader(new FileReader(arquivoEntrada));
             BufferedWriter saida = new BufferedWriter(new FileWriter(arquivoSaida));
 
-            String linha;
+            StringBuilder conteudoCompleto = new StringBuilder();
+            String l;
+            while ((l = arq.readLine()) != null) {
+                conteudoCompleto.append(l).append("\n");
+            }
+            String codigo = conteudoCompleto.toString();
+
+            int indexInicio = codigo.indexOf("inicio:");
+            int indexFim = codigo.lastIndexOf("fim.");
+
+            if (indexInicio == -1) {
+                System.out.println("Erro de sintaxe: Bloco 'inicio:' não encontrado.");
+                arquivoSaida.delete();
+                return;
+            }
+            if (indexFim == -1) {
+                System.out.println("Erro de sintaxe: Bloco 'fim.' não encontrado.");
+                arquivoSaida.delete();
+                return;
+            }
+            if (indexInicio > indexFim) {
+                System.out.println("Erro de sintaxe: 'inicio:' deve vir antes de 'fim.'.");
+                arquivoSaida.delete();
+                return;
+            }
+
+            // Garante que não há código útil antes do inicio:
+            String antesDoInicio = codigo.substring(0, indexInicio).trim();
+            if (!antesDoInicio.isEmpty()) {
+                System.out.println("Erro de sintaxe: Código detectado antes do bloco 'inicio:'.");
+                arquivoSaida.delete();
+                return;
+            }
+
+            // Extrai o conteúdo entre inicio: e fim.
+            String corpo = codigo.substring(indexInicio + 7, indexFim);
+            
+            // Verifica se o corpo termina com ';' (ignorando espaços e quebras de linha)
+            if (!corpo.trim().isEmpty() && !corpo.trim().endsWith(";")) {
+                System.out.println("Erro de sintaxe: Toda instrução deve terminar com ';'.");
+                arquivoSaida.delete();
+                return;
+            }
+
+            String[] segmentos = corpo.split(";");
+            boolean houveErro = false;
             String X = "";
             String Y = "";
 
-            while ((linha = arq.readLine()) != null) {
-                linha = linha.trim();
+            for (String segmento : segmentos) {
+                String instrucao = segmento.trim();
+                if (instrucao.isEmpty()) continue;
 
-                if (linha.isEmpty() || linha.equals("inicio:")) {
-                    continue;
-                } else if (linha.startsWith("X")) {
-                    X = linha.split("=")[1].replace(";", "").trim();
-                } else if (linha.startsWith("Y")) {
-                    Y = linha.split("=")[1].replace(";", "").trim();
-                } else if (linha.startsWith("W")) {
+                if (!instrucao.contains("=")) {
+                    System.out.println("Erro de sintaxe: Instrução malformada '" + instrucao + "' (falta '=').");
+                    houveErro = true;
+                    break;
+                }
+
+                String[] partes = instrucao.split("=");
+                if (partes.length != 2) {
+                    System.out.println("Erro de sintaxe: Instrução malformada '" + instrucao + "' (esperado VAR=VALOR).");
+                    houveErro = true;
+                    break;
+                }
+
+                String variavel = partes[0].trim();
+                String valor = partes[1].trim();
+
+                if (valor.isEmpty()) {
+                    System.out.println("Erro de sintaxe: Valor de atribuição vazio em '" + instrucao + "'.");
+                    houveErro = true;
+                    break;
+                }
+
+                if (variavel.equals("X")) {
+                    X = valor;
+                } else if (variavel.equals("Y")) {
+                    Y = valor;
+                } else if (variavel.equals("W")) {
                     if (X.isEmpty() || Y.isEmpty()) {
-                        System.out.println("Erro: X ou Y não definidos.");
+                        System.out.println("Erro: X ou Y não definidos antes de W na instrução '" + instrucao + "'.");
+                        houveErro = true;
                         break;
                     } else {
-                        String mnemônicoLido = linha.split("=")[1].replace(";", "").trim();
-                        String valorHex = procurarMnemonico(mnemônicoLido);
-
+                        String valorHex = procurarMnemonico(valor);
                         if (valorHex == null) {
-                            saida.write("Erro");
-                            System.out.println("Erro: Mnemónico '" + mnemônicoLido + "' não reconhecido.");
+                            System.out.println("Erro: Mnemônico '" + valor + "' não reconhecido.");
+                            houveErro = true;
                             break; 
                         }
 
                         try {
-                            // CORREÇÃO: Usar base 16 para aceitar A, B, C, D, E, F
-                            int valX = Integer.parseInt(X, 16);
-                            int valY = Integer.parseInt(Y, 16);
-                            
-                            // Escreve o código XYW e um espaço (para o Arduino ler de 4 em 4 caracteres)
+                            int valX = Integer.parseInt(X.trim(), 16);
+                            int valY = Integer.parseInt(Y.trim(), 16);
                             saida.write(String.format("%X%X%s ", valX, valY, valorHex));
                         } catch (NumberFormatException e) {
                             System.out.println("Erro ao converter valor: " + X + " ou " + Y);
-                            saida.write("Erro");
+                            houveErro = true;
                             break;
                         }
                     }
-                } else if (linha.equals("fim.")) {
+                } else {
+                    System.out.println("Erro de sintaxe: Variável '" + variavel + "' desconhecida.");
+                    houveErro = true;
                     break;
                 }
             }
 
             arq.close();
             saida.close();
-            System.out.println("Compilação finalizada com sucesso!");
+
+            if (!houveErro) {
+                System.out.println("Compilação finalizada com sucesso!");
+            } else {
+                arquivoSaida.delete();
+            }
 
         } catch (IOException e) {
             System.out.println("Erro ao processar os arquivos: " + e.getMessage());
