@@ -24,14 +24,17 @@ public class Main {
         tabela.put("AoB", "E");
         tabela.put("nAenB", "F");
 
-        return tabela.getOrDefault(string, "Erro");
+        return tabela.get(string);
     }
 
     public static void main(String[] args) {
+        // Ajuste os caminhos dos arquivos conforme sua pasta
+        File arquivoEntrada = new File("compilador/testeula.ula");
+        File arquivoSaida = new File("compilador/testeula.hex");
+
         try {
-            // Abrindo os arquivos
-            BufferedReader arq = new BufferedReader(new FileReader("testeula.ula"));
-            BufferedWriter saida = new BufferedWriter(new FileWriter("testeula.hex"));
+            BufferedReader arq = new BufferedReader(new FileReader(arquivoEntrada));
+            BufferedWriter saida = new BufferedWriter(new FileWriter(arquivoSaida));
 
             String linha;
             String X = "";
@@ -40,38 +43,47 @@ public class Main {
             while ((linha = arq.readLine()) != null) {
                 linha = linha.trim();
 
-                if (linha.equals("inicio:")) {
+                if (linha.isEmpty() || linha.equals("inicio:")) {
                     continue;
-
                 } else if (linha.startsWith("X")) {
                     X = linha.split("=")[1].replace(";", "").trim();
-
                 } else if (linha.startsWith("Y")) {
                     Y = linha.split("=")[1].replace(";", "").trim();
-
                 } else if (linha.startsWith("W")) {
                     if (X.isEmpty() || Y.isEmpty()) {
-                        System.out.println("Erro, X ou Y não foram definidos antes da primeira operação.");
+                        System.out.println("Erro: X ou Y não definidos.");
+                        break;
                     } else {
-                        String W = linha.split("=")[1].replace(";", "").trim();
+                        String mnemônicoLido = linha.split("=")[1].replace(";", "").trim();
+                        String valorHex = procurarMnemonico(mnemônicoLido);
+
+                        if (valorHex == null) {
+                            saida.write("Erro");
+                            System.out.println("Erro: Mnemónico '" + mnemônicoLido + "' não reconhecido.");
+                            break; 
+                        }
+
                         try {
-                            int x = Integer.parseInt(X);
-                            int y = Integer.parseInt(Y);
-                            // Escreve no arquivo de saída o formato desejado
-                            saida.write(String.format("%X%X%s%n", x, y, procurarMnemonico(W)));
+                            // CORREÇÃO: Usar base 16 para aceitar A, B, C, D, E, F
+                            int valX = Integer.parseInt(X, 16);
+                            int valY = Integer.parseInt(Y, 16);
+                            
+                            // Escreve o código XYW e um espaço (para o Arduino ler de 4 em 4 caracteres)
+                            saida.write(String.format("%X%X%s ", valX, valY, valorHex));
                         } catch (NumberFormatException e) {
-                            System.out.println("Erro ao converter X ou Y para inteiro: " + e.getMessage());
+                            System.out.println("Erro ao converter valor: " + X + " ou " + Y);
+                            saida.write("Erro");
+                            break;
                         }
                     }
-
                 } else if (linha.equals("fim.")) {
                     break;
                 }
             }
 
-            // Fechando os arquivos
             arq.close();
             saida.close();
+            System.out.println("Compilação finalizada com sucesso!");
 
         } catch (IOException e) {
             System.out.println("Erro ao processar os arquivos: " + e.getMessage());
